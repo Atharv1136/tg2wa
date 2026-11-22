@@ -47,13 +47,20 @@ export default function OnboardingPage() {
 
   // Load existing status on mount
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramStep = urlParams.get("step");
+    if (paramStep) {
+      const p = parseInt(paramStep, 10);
+      if (p >= 1 && p <= 4) setStep(p as 1 | 2 | 3 | 4);
+    }
+
     fetch("/api/status")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!data) return;
         if (data.telegram?.status === "connected") {
           setTgState("connected");
-          if (step === 1) setStep(2);
+          if (!paramStep && step === 1) setStep(2);
         }
         if (data.whatsapp?.status === "verified") {
           setWaStatus("verified");
@@ -275,7 +282,7 @@ export default function OnboardingPage() {
       <Navbar />
 
       <main className="max-w-2xl w-full mx-auto px-4 py-12 flex-1">
-        {/* Stepper Header */}
+        {/* Stepper Header (Clickable) */}
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-200 dark:border-slate-800">
           {[
             { num: 1, label: "1. Telegram" },
@@ -283,22 +290,36 @@ export default function OnboardingPage() {
             { num: 3, label: "3. WhatsApp" },
             { num: 4, label: "4. Finish" },
           ].map((s) => (
-            <div key={s.num} className="flex items-center gap-2">
+            <button
+              type="button"
+              key={s.num}
+              onClick={() => {
+                setStep(s.num as 1 | 2 | 3 | 4);
+                setErrorMsg("");
+              }}
+              className="flex items-center gap-2 group cursor-pointer focus:outline-none"
+            >
               <span
-                className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center ${
+                className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center transition ${
                   step === s.num
-                    ? "bg-blue-600 text-white"
+                    ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-400/40"
                     : step > s.num
                     ? "bg-emerald-600 text-white"
-                    : "bg-slate-200 dark:bg-slate-800 text-slate-500"
+                    : "bg-slate-200 dark:bg-slate-800 text-slate-500 group-hover:bg-slate-300 dark:group-hover:bg-slate-700"
                 }`}
               >
                 {step > s.num ? "✓" : s.num}
               </span>
-              <span className={`text-xs font-semibold ${step === s.num ? "text-slate-900 dark:text-slate-100" : "text-slate-500"}`}>
+              <span
+                className={`text-xs font-semibold transition ${
+                  step === s.num
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-slate-500 group-hover:text-slate-900 dark:group-hover:text-slate-200"
+                }`}
+              >
                 {s.label}
               </span>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -723,13 +744,28 @@ export default function OnboardingPage() {
                   ✓
                 </div>
                 <h3 className="font-semibold text-lg">WhatsApp Verified</h3>
-                <p className="text-sm text-slate-500 mb-6">Your WhatsApp destination is configured and tested.</p>
-                <button
-                  onClick={() => setStep(4)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2.5 rounded-xl transition"
-                >
-                  Review & Finish
-                </button>
+                <p className="text-sm text-slate-500 mb-6">
+                  Your WhatsApp destination {waPhone ? `(${waPhone})` : ""} is configured and active.
+                </p>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWaStatus("idle");
+                      setErrorMsg("");
+                    }}
+                    className="px-5 py-2.5 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium rounded-xl text-sm transition"
+                  >
+                    Change WhatsApp Number
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStep(4)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2.5 rounded-xl transition text-sm shadow-sm"
+                  >
+                    Continue to Review
+                  </button>
+                </div>
               </div>
             )}
           </div>

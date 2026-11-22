@@ -167,15 +167,23 @@ export default function DashboardPage() {
           {/* WhatsApp Card */}
           <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-slate-500">WhatsApp (CallMeBot)</span>
+              <span className="text-xs font-medium text-slate-500">WhatsApp Destination</span>
               {getStatusBadge(status?.whatsapp.status || "unverified")}
             </div>
             <p className="font-semibold text-base">
               {status?.whatsapp.phoneMasked || "Not Configured"}
             </p>
-            <p className="text-xs text-slate-500 mt-1">
-              {status?.whatsapp.verifiedAt ? "Delivery Path Verified" : "Verification Required"}
-            </p>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              <span className="text-xs text-slate-500">
+                {status?.whatsapp.verifiedAt ? "Delivery Path Verified" : "Verification Required"}
+              </span>
+              <Link
+                href="/onboarding?step=3"
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+              >
+                Change Number →
+              </Link>
+            </div>
           </div>
 
           {/* Forwarding State */}
