@@ -1,0 +1,24 @@
+{
+  "name": "@tg2wa/db",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate:pg",
+    "db:migrate": "drizzle-kit up:pg"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.1",
+    "@tg2wa/shared": "workspace:*",
+    "drizzle-orm": "^0.30.10",
+    "postgres": "^3.4.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "drizzle-kit": "^0.20.18",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}
