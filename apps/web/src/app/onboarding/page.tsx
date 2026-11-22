@@ -214,8 +214,24 @@ export default function OnboardingPage() {
 
   // Handlers for WhatsApp Verification
   const handleSaveAndTestWhatsApp = async () => {
-    setWaLoading(true);
     setErrorMsg("");
+
+    if (waTargetType === "group") {
+      if (waPhone.includes("chat.whatsapp.com")) {
+        setErrorMsg(
+          "WhatsApp Group invite links (chat.whatsapp.com) cannot be used directly by WhatsApp bots. Please provide your numeric WhatsApp Group ID ending in @g.us (format: 120363xxxxxx@g.us). If you prefer 1-on-1 personal alerts to your phone, switch to 'Personal Chat (You)' above!"
+        );
+        return;
+      }
+      if (!waPhone.trim().endsWith("@g.us")) {
+        setErrorMsg(
+          "WhatsApp Group IDs must end with @g.us (format: 120363xxxxxx@g.us). If you prefer 1-on-1 personal alerts to your phone, switch to 'Personal Chat (You)' above!"
+        );
+        return;
+      }
+    }
+
+    setWaLoading(true);
     try {
       // 1. Save
       const saveRes = await fetch("/api/whatsapp/save", {

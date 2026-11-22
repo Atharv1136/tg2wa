@@ -38,8 +38,26 @@ export default function SettingsPage() {
 
   const handleSaveAndTestWhatsApp = async () => {
     if (!waPhone || !waApiKey) return;
-    setWaLoading(true);
     setWaMessage(null);
+
+    if (waTargetType === "group") {
+      if (waPhone.includes("chat.whatsapp.com")) {
+        setWaMessage({
+          type: "error",
+          text: "WhatsApp Group invite links (chat.whatsapp.com) cannot be used directly by WhatsApp bots. Please provide your numeric WhatsApp Group ID ending in @g.us (format: 120363xxxxxx@g.us). If you prefer 1-on-1 personal alerts, select 'Personal Chat (You)'.",
+        });
+        return;
+      }
+      if (!waPhone.trim().endsWith("@g.us")) {
+        setWaMessage({
+          type: "error",
+          text: "WhatsApp Group IDs must end with @g.us (format: 120363xxxxxx@g.us). If you prefer 1-on-1 personal alerts, select 'Personal Chat (You)'.",
+        });
+        return;
+      }
+    }
+
+    setWaLoading(true);
 
     try {
       const saveRes = await fetch("/api/whatsapp/save", {

@@ -23,13 +23,21 @@ export async function POST(req: NextRequest) {
   let targetDestination = parsed.data.phone.trim();
   let provider = parsed.data.provider || "textmebot";
 
-  // Normalize Group Invite Links into @g.us
-  if (targetDestination.includes("chat.whatsapp.com/")) {
-    const parts = targetDestination.split("chat.whatsapp.com/");
-    const code = parts[1].split(/[\/\?#]/)[0].trim();
-    targetDestination = `${code}@g.us`;
-    provider = "textmebot";
-  } else if (targetDestination.toLowerCase().endsWith("@g.us")) {
+  // Reject invite links with clear actionable instruction
+  if (targetDestination.includes("chat.whatsapp.com")) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "INVALID_GROUP_INVITE_LINK",
+          message:
+            "Group invite links (chat.whatsapp.com) cannot be used directly by WhatsApp bots. Please provide your numeric WhatsApp Group ID ending in @g.us (format: 120363xxxxxx@g.us). Follow the WhatsApp Web inspection instructions on this page.",
+        },
+      },
+      { status: 400 }
+    );
+  }
+
+  if (targetDestination.toLowerCase().endsWith("@g.us")) {
     provider = "textmebot";
   }
 

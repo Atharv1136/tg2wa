@@ -115,7 +115,11 @@ export class CallMeBotSender implements Sender {
       logger.warn({ isAbort, provider }, "WhatsApp delivery send error");
       return {
         success: false,
-        error: isAbort ? "GATEWAY_TIMEOUT" : "GATEWAY_NETWORK_ERROR",
+        error: isAbort
+          ? (dest.phoneE164.endsWith("@g.us")
+              ? "WhatsApp gateway timed out. Please check that your Group ID is in the format 120363xxxxxx@g.us and your linked phone number is an active member of that group."
+              : "WhatsApp gateway timed out. Please verify your WhatsApp phone number and that your API key is active.")
+          : "GATEWAY_NETWORK_ERROR",
         retryable: true,
       };
     }

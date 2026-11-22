@@ -35,16 +35,12 @@ export const WhatsAppDestinationSchema = z
     (val) => {
       // E.164 or international phone number
       if (/^\+?[1-9]\d{6,14}$/.test(val)) return true;
-      // WhatsApp Group JID ending in @g.us
+      // WhatsApp Group JID ending in @g.us (format: 120363xxxxxx@g.us)
       if (/^[0-9a-zA-Z_\-]+@g\.us$/i.test(val)) return true;
-      // WhatsApp Group invite link
-      if (val.includes("chat.whatsapp.com/")) return true;
-      // Raw group identifier string
-      if (/^[0-9a-zA-Z_\-]{10,}$/.test(val)) return true;
       return false;
     },
     {
-      message: "Must be a valid phone number (e.g. +919561706020) or WhatsApp Group ID / Invite Link",
+      message: "Must be a valid international phone number (e.g. +919561706020) or numeric WhatsApp Group ID (e.g. 120363xxxxxx@g.us)",
     }
   );
 
