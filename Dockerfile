@@ -27,8 +27,8 @@ RUN pnpm --filter worker build
 RUN chown -R 1000:1000 /app
 
 USER 1000
-ENV PORT=7860
-EXPOSE 7860
+ENV PORT=10000
+EXPOSE 10000
 
 ENV NODE_ENV=production
 CMD ["node", "apps/worker/dist/index.js"]
