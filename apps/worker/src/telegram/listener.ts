@@ -1,4 +1,4 @@
-import { TelegramClient } from "telegram";
+import { TelegramClient, utils } from "telegram";
 import { NewMessage, NewMessageEvent } from "telegram/events";
 import { WorkerDb, forwardedMessages } from "@tg2wa/db";
 import { eq } from "drizzle-orm";
@@ -16,6 +16,15 @@ export interface ListenerContext {
   getDestination: () => Destination | null;
   getChatTitle: (chatId: string) => string;
   isForwardingEnabled: () => boolean;
+  isForwardOwnMessagesEnabled?: () => boolean;
+}
+
+/**
+ * Normalizes any Telegram chat ID to bare digits for robust matching
+ * across supergroups (-100...), basic groups (-...), and channels.
+ */
+function cleanChatId(id: string): string {
+  return id.replace(/^-100/, "").replace(/^-/, "");
 }
 
 /**
@@ -27,18 +36,55 @@ export function attachTelegramListener(ctx: ListenerContext): void {
       if (!ctx.isForwardingEnabled()) return;
 
       const message = event.message;
-      if (!message || message.out) {
-        // Skip outgoing messages
+      if (!message) return;
+
+      const allowOwn = ctx.isForwardOwnMessagesEnabled ? ctx.isForwardOwnMessagesEnabled() : false;
+      // Broadcast channel posts (message.post) should be forwarded; only personal outgoing messages respect allowOwn
+      if (message.out && !message.post && !allowOwn) {
+        // Skip outgoing messages unless user enabled forwarding own messages
         return;
       }
 
-      const rawChatId = message.chatId?.toString();
+      // Extract raw chatId from all available GramJS properties
+      let peerStr = "";
+      if (message.peerId) {
+        try {
+          peerStr = utils.getPeerId(message.peerId).toString();
+        } catch {}
+      }
+      const eventChatId = event.chatId ? event.chatId.toString() : "";
+      const msgChatId = message.chatId ? message.chatId.toString() : "";
+      const peerId = message.peerId
+        ? ((message.peerId as any).channelId || (message.peerId as any).chatId || "")?.toString()
+        : "";
+
+      const rawChatId = peerStr || eventChatId || msgChatId || peerId;
       if (!rawChatId) return;
 
+      const cleanIncoming = cleanChatId(rawChatId);
       const activeChats = ctx.getActiveChats();
-      // Match raw id or string normalized id
-      const isMonitored = activeChats.has(rawChatId) || activeChats.has(`-100${rawChatId}`);
-      if (!isMonitored) return;
+
+      let matchedChatId: string | null = null;
+      for (const monitoredId of activeChats) {
+        if (monitoredId === rawChatId || cleanChatId(monitoredId) === cleanIncoming) {
+          matchedChatId = monitoredId;
+          break;
+        }
+      }
+
+      logger.info(
+        {
+          rawChatId,
+          cleanIncoming,
+          isMonitored: Boolean(matchedChatId),
+          isOut: message.out,
+          isPost: message.post,
+          hasText: Boolean(message.message || message.text),
+        },
+        "Incoming Telegram message evaluated"
+      );
+
+      if (!matchedChatId) return;
 
       // Check text content
       const text = message.message || message.text || "";
@@ -46,19 +92,19 @@ export function attachTelegramListener(ctx: ListenerContext): void {
 
       if (!text && !hasMedia) return;
       if (!text && hasMedia) {
-        // Media-only: count as skipped
+        // Media-only without text: skipped in v1 per PRD
         return;
       }
 
       const tgMessageId = message.id;
-      const groupTitle = ctx.getChatTitle(rawChatId) || "Telegram Group";
+      const groupTitle = ctx.getChatTitle(matchedChatId) || ctx.getChatTitle(rawChatId) || "Telegram Group";
 
       // 1. Deduplication Insert (Exactly-once guarantee)
       const inserted = await ctx.db
         .insert(forwardedMessages)
         .values({
           userId: ctx.userId,
-          tgChatId: rawChatId,
+          tgChatId: matchedChatId,
           tgMessageId,
           status: "queued",
           attempts: 0,
@@ -68,6 +114,7 @@ export function attachTelegramListener(ctx: ListenerContext): void {
 
       if (inserted.length === 0) {
         // Duplicate message -> safely ignore
+        logger.info({ tgMessageId, matchedChatId }, "Message already forwarded, skipping dedupe");
         return;
       }
 
@@ -98,17 +145,19 @@ export function attachTelegramListener(ctx: ListenerContext): void {
               .update(forwardedMessages)
               .set({ status: "sent", sentAt: new Date() })
               .where(eq(forwardedMessages.id, recordId));
+            logger.info({ recordId, userId: ctx.userId }, "Successfully forwarded message to WhatsApp");
           },
           async (errorReason) => {
             await ctx.db
               .update(forwardedMessages)
               .set({ status: "failed", error: errorReason })
               .where(eq(forwardedMessages.id, recordId));
+            logger.error({ recordId, errorReason }, "Failed to deliver forwarded message");
           }
         );
       }
     } catch (err) {
-      logger.error({ userId: ctx.userId, err }, "Error processing NewMessage event");
+      logger.error({ err }, "Error processing Telegram message event");
     }
   }, new NewMessage({}));
 }

@@ -21,6 +21,7 @@ export class ReconcileEngine {
   private userChatTitles = new Map<string, Map<string, string>>();
   private userDestinations = new Map<string, Destination>();
   private userForwardingEnabled = new Map<string, boolean>();
+  private userForwardOwnMessages = new Map<string, boolean>();
 
   constructor(
     db: WorkerDb,
@@ -80,6 +81,7 @@ export class ReconcileEngine {
         chats.length > 0;
 
       this.userForwardingEnabled.set(userId, Boolean(settings?.enabled));
+      this.userForwardOwnMessages.set(userId, Boolean(settings?.forwardOwnMessages));
 
       // Update cached active chats
       const chatSet = new Set<string>();
@@ -121,6 +123,7 @@ export class ReconcileEngine {
             getDestination: () => this.userDestinations.get(userId) || null,
             getChatTitle: (cId) => this.userChatTitles.get(userId)?.get(cId) || "Telegram Group",
             isForwardingEnabled: () => this.userForwardingEnabled.get(userId) || false,
+            isForwardOwnMessagesEnabled: () => this.userForwardOwnMessages.get(userId) || false,
           });
         }
       } else if (!isDesired && isRunning) {

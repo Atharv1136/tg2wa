@@ -60,6 +60,14 @@ export class TelegramClientManager {
         return null;
       }
 
+      // Preload dialogs to warm GramJS entity cache so MTProto delivers channel updates
+      try {
+        await client.getDialogs({ limit: 100 });
+        logger.info({ userId }, "Preloaded Telegram dialogs and registered channel subscriptions");
+      } catch (dialogErr) {
+        logger.warn({ userId, dialogErr }, "Could not preload dialogs on startup");
+      }
+
       this.clients.set(userId, client);
       logger.info({ userId }, "Started Telegram client");
       return client;

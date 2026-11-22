@@ -18,17 +18,21 @@ export class WorkerClient {
     path: string,
     body?: any
   ): Promise<{ data?: T; error?: { code: string; message: string } }> {
-    const bodyStr = body ? JSON.stringify(body) : "";
+    const bodyStr = body !== undefined && body !== null ? JSON.stringify(body) : "";
     const { timestamp, signature } = signRequest(this.secret, method, path, bodyStr);
 
     try {
+      const headers: Record<string, string> = {
+        "x-timestamp": timestamp,
+        "x-signature": signature,
+      };
+      if (bodyStr) {
+        headers["Content-Type"] = "application/json";
+      }
+
       const res = await fetch(`${this.baseUrl}${path}`, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          "x-timestamp": timestamp,
-          "x-signature": signature,
-        },
+        headers,
         body: bodyStr || undefined,
       });
 

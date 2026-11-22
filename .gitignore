@@ -11,3 +11,6 @@ dist
 *.session
 *.session-journal
 coverage
+
+.vercel
+.env*

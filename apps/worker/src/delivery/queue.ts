@@ -11,13 +11,14 @@ export class DeliveryQueueManager {
     this.sender = sender;
   }
 
-  private getQueue(userId: string): PQueue {
+  private getQueue(userId: string, isFastProvider: boolean = false): PQueue {
     let queue = this.userQueues.get(userId);
     if (!queue) {
       queue = new PQueue({
         concurrency: 1,
-        interval: QUEUE_INTERVAL_MS,
-        intervalCap: 1,
+        // Zero delay for fast providers (TextMeBot); CallMeBot retains 2000ms rate limit
+        interval: isFastProvider ? 0 : QUEUE_INTERVAL_MS,
+        intervalCap: isFastProvider ? 10 : 1,
       });
       this.userQueues.set(userId, queue);
     }
@@ -31,7 +32,8 @@ export class DeliveryQueueManager {
     onSuccess: () => Promise<void>,
     onFailure: (error: string) => Promise<void>
   ): Promise<void> {
-    const queue = this.getQueue(userId);
+    const isFast = dest.provider === "textmebot";
+    const queue = this.getQueue(userId, isFast);
 
     // Bounded queue: cap 200 items
     if (queue.size >= 200) {
