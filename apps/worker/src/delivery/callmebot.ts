@@ -38,10 +38,12 @@ export class CallMeBotSender implements Sender {
 
         if (!response.ok) {
           const status = response.status;
+          const rawText = await response.text().catch(() => "");
+          const isDelay = rawText.toLowerCase().includes("delay") || rawText.toLowerCase().includes("wait") || status === 429;
           return {
             success: false,
-            error: `HTTP_${status}`,
-            retryable: status >= 500 || status === 429,
+            error: rawText ? `HTTP_${status}: ${rawText.slice(0, 80).trim()}` : `HTTP_${status}`,
+            retryable: status >= 500 || status === 429 || isDelay,
           };
         }
 
@@ -49,10 +51,12 @@ export class CallMeBotSender implements Sender {
         try {
           const data = JSON.parse(rawText);
           if (data.status === "error") {
+            const comment = data.comment || data.message || "TEXTMEBOT_REJECTED";
+            const isDelay = comment.toLowerCase().includes("delay") || comment.toLowerCase().includes("wait");
             return {
               success: false,
-              error: data.comment || data.message || "TEXTMEBOT_REJECTED",
-              retryable: false,
+              error: comment,
+              retryable: isDelay,
             };
           }
           return { success: true };

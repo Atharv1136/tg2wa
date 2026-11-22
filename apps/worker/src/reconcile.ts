@@ -22,6 +22,7 @@ export class ReconcileEngine {
   private userDestinations = new Map<string, Destination>();
   private userForwardingEnabled = new Map<string, boolean>();
   private userForwardOwnMessages = new Map<string, boolean>();
+  private userListenerCleanups = new Map<string, () => void>();
 
   constructor(
     db: WorkerDb,
@@ -47,6 +48,10 @@ export class ReconcileEngine {
       clearInterval(this.intervalTimer);
       this.intervalTimer = null;
     }
+    for (const cleanup of this.userListenerCleanups.values()) {
+      cleanup();
+    }
+    this.userListenerCleanups.clear();
   }
 
   async reconcileUser(userId: string): Promise<void> {
@@ -114,7 +119,7 @@ export class ReconcileEngine {
         });
 
         if (client) {
-          attachTelegramListener({
+          const cleanup = attachTelegramListener({
             userId,
             client,
             db: this.db,
@@ -125,8 +130,14 @@ export class ReconcileEngine {
             isForwardingEnabled: () => this.userForwardingEnabled.get(userId) || false,
             isForwardOwnMessagesEnabled: () => this.userForwardOwnMessages.get(userId) || false,
           });
+          this.userListenerCleanups.set(userId, cleanup);
         }
       } else if (!isDesired && isRunning) {
+        const cleanup = this.userListenerCleanups.get(userId);
+        if (cleanup) {
+          cleanup();
+          this.userListenerCleanups.delete(userId);
+        }
         await this.clientManager.stopClient(userId);
       }
 

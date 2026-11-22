@@ -16,9 +16,9 @@ export class DeliveryQueueManager {
     if (!queue) {
       queue = new PQueue({
         concurrency: 1,
-        // Zero delay for fast providers (TextMeBot); CallMeBot retains 2000ms rate limit
-        interval: isFastProvider ? 0 : QUEUE_INTERVAL_MS,
-        intervalCap: isFastProvider ? 10 : 1,
+        // TextMeBot requires 8s cooldown between messages; CallMeBot requires 20s
+        interval: isFastProvider ? 8500 : QUEUE_INTERVAL_MS,
+        intervalCap: 1,
       });
       this.userQueues.set(userId, queue);
     }
@@ -43,8 +43,8 @@ export class DeliveryQueueManager {
     }
 
     await queue.add(async () => {
-      // Retry policy: 5s, 20s, 60s
-      const delays = [5000, 20000, 60000];
+      // Retry policy: 9s (for 8s delay), 20s, 60s
+      const delays = [9000, 20000, 60000];
       let attempts = 0;
       let lastResult: SendResult = { success: false, error: "INITIAL" };
 
