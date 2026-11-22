@@ -30,7 +30,8 @@ export class DeliveryQueueManager {
     dest: Destination,
     text: string,
     onSuccess: () => Promise<void>,
-    onFailure: (error: string) => Promise<void>
+    onFailure: (error: string) => Promise<void>,
+    isCancelled?: () => boolean
   ): Promise<void> {
     const isFast = dest.provider === "textmebot";
     const queue = this.getQueue(userId, isFast);
@@ -43,12 +44,22 @@ export class DeliveryQueueManager {
     }
 
     await queue.add(async () => {
+      if (isCancelled && isCancelled()) {
+        logger.info({ userId }, "Forwarding cancelled by user, dropping queued send");
+        return;
+      }
+
       // Retry policy: 9s (for 8s delay), 20s, 60s
       const delays = [9000, 20000, 60000];
       let attempts = 0;
       let lastResult: SendResult = { success: false, error: "INITIAL" };
 
       while (attempts <= delays.length) {
+        if (isCancelled && isCancelled()) {
+          logger.info({ userId }, "Forwarding cancelled by user, dropping retries");
+          return;
+        }
+
         attempts++;
         lastResult = await this.sender.send(dest, text);
 
@@ -75,6 +86,7 @@ export class DeliveryQueueManager {
     if (q) {
       q.clear();
       this.userQueues.delete(userId);
+      logger.info({ userId }, "Cleared all pending delivery queue items for user");
     }
   }
 }

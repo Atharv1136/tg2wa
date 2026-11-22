@@ -109,6 +109,10 @@ export class ReconcileEngine {
 
       const isRunning = Boolean(this.clientManager.getClient(userId));
 
+      if (!isDesired) {
+        this.queueManager.clearUserQueue(userId);
+      }
+
       if (isDesired && !isRunning && tgConn?.sessionEncrypted) {
         const sessionStr = decrypt(tgConn.sessionEncrypted, this.encryptionKey);
         const client = await this.clientManager.startClient(userId, sessionStr, async (uId) => {
@@ -138,7 +142,9 @@ export class ReconcileEngine {
           cleanup();
           this.userListenerCleanups.delete(userId);
         }
+        this.queueManager.clearUserQueue(userId);
         await this.clientManager.stopClient(userId);
+        logger.info({ userId }, "Stopped Telegram client and cleared delivery queues on stop");
       }
 
       this.heartbeatManager.setActiveUsers(this.clientManager.getActiveUserIds());

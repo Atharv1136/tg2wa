@@ -80,6 +80,7 @@ export function attachTelegramListener(ctx: ListenerContext): () => void {
 
     const parts = splitMessage(textToSend);
     for (const part of parts) {
+      if (isStopped || !ctx.isForwardingEnabled()) return;
       await ctx.queueManager.enqueueSend(
         ctx.userId,
         destination,
@@ -89,13 +90,18 @@ export function attachTelegramListener(ctx: ListenerContext): () => void {
         },
         async (errorReason) => {
           logger.error({ tgMessageId, errorReason }, "Failed to deliver forwarded message");
-        }
+        },
+        () => isStopped || !ctx.isForwardingEnabled()
       );
     }
   };
 
   // Flushes accumulated buffered messages for a channel
   const flushChannelBuffer = async (chatId: string) => {
+    if (isStopped || !ctx.isForwardingEnabled()) {
+      channelBuffers.delete(chatId);
+      return;
+    }
     const buf = channelBuffers.get(chatId);
     if (!buf || buf.texts.length === 0) return;
 
@@ -294,6 +300,7 @@ export function attachTelegramListener(ctx: ListenerContext): () => void {
       if (buf.timer) clearTimeout(buf.timer);
     }
     channelBuffers.clear();
-    logger.info({ userId: ctx.userId }, "Telegram listener and channel poller stopped");
+    ctx.queueManager.clearUserQueue(ctx.userId);
+    logger.info({ userId: ctx.userId }, "Telegram listener and delivery queues stopped");
   };
 }
