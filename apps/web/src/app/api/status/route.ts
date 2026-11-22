@@ -73,7 +73,11 @@ export async function GET() {
     },
     whatsapp: {
       status: wa?.status || "unverified",
-      phoneMasked: wa?.phoneE164 ? `••••• ${wa.phoneE164.slice(-4)}` : null,
+      phoneMasked: wa?.phoneE164
+        ? wa.phoneE164.includes("@g.us")
+          ? `WhatsApp Group (${wa.phoneE164.replace("@g.us", "")})`
+          : `••••• ${wa.phoneE164.slice(-4)}`
+        : null,
       verifiedAt: wa?.verifiedAt?.toISOString() || null,
       lastError: wa?.lastError,
     },

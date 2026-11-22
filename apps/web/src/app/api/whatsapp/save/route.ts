@@ -19,7 +19,19 @@ export async function POST(req: NextRequest) {
   const userId = session.user.id;
   const encryptionKey = process.env.ENCRYPTION_KEY || "";
   const apiKeyEncrypted = encrypt(parsed.data.apiKey, encryptionKey);
-  const provider = parsed.data.provider || "callmebot";
+
+  let targetDestination = parsed.data.phone.trim();
+  let provider = parsed.data.provider || "textmebot";
+
+  // Normalize Group Invite Links into @g.us
+  if (targetDestination.includes("chat.whatsapp.com/")) {
+    const parts = targetDestination.split("chat.whatsapp.com/");
+    const code = parts[1].split(/[\/\?#]/)[0].trim();
+    targetDestination = `${code}@g.us`;
+    provider = "textmebot";
+  } else if (targetDestination.toLowerCase().endsWith("@g.us")) {
+    provider = "textmebot";
+  }
 
   const db = getDb();
   await db
@@ -27,7 +39,7 @@ export async function POST(req: NextRequest) {
     .values({
       userId,
       provider,
-      phoneE164: parsed.data.phone,
+      phoneE164: targetDestination,
       apiKeyEncrypted,
       status: "unverified",
     })
@@ -35,12 +47,12 @@ export async function POST(req: NextRequest) {
       target: whatsappDestinations.userId,
       set: {
         provider,
-        phoneE164: parsed.data.phone,
+        phoneE164: targetDestination,
         apiKeyEncrypted,
         status: "unverified",
         updatedAt: new Date(),
       },
     });
 
-  return NextResponse.json({ status: "unverified", provider });
+  return NextResponse.json({ status: "unverified", provider, destination: targetDestination });
 }

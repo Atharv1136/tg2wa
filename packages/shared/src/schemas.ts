@@ -27,8 +27,29 @@ export const SaveGroupsInputSchema = z.object({
   chats: z.array(MonitoredChatInputSchema),
 });
 
+export const WhatsAppDestinationSchema = z
+  .string()
+  .min(3)
+  .trim()
+  .refine(
+    (val) => {
+      // E.164 or international phone number
+      if (/^\+?[1-9]\d{6,14}$/.test(val)) return true;
+      // WhatsApp Group JID ending in @g.us
+      if (/^[0-9a-zA-Z_\-]+@g\.us$/i.test(val)) return true;
+      // WhatsApp Group invite link
+      if (val.includes("chat.whatsapp.com/")) return true;
+      // Raw group identifier string
+      if (/^[0-9a-zA-Z_\-]{10,}$/.test(val)) return true;
+      return false;
+    },
+    {
+      message: "Must be a valid phone number (e.g. +919561706020) or WhatsApp Group ID / Invite Link",
+    }
+  );
+
 export const SaveWhatsAppInputSchema = z.object({
-  phone: PhoneSchema,
+  phone: WhatsAppDestinationSchema,
   apiKey: z.string().min(1).trim(),
   provider: z.enum(["callmebot", "textmebot"]).optional().default("callmebot"),
 });

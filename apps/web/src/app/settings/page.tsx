@@ -14,6 +14,7 @@ export default function SettingsPage() {
   const [waCurrentPhone, setWaCurrentPhone] = useState<string | null>(null);
   const [waCurrentStatus, setWaCurrentStatus] = useState<string>("unverified");
   const [waProvider, setWaProvider] = useState<"textmebot" | "callmebot">("textmebot");
+  const [waTargetType, setWaTargetType] = useState<"personal" | "group">("personal");
   const [waPhone, setWaPhone] = useState("");
   const [waApiKey, setWaApiKey] = useState("");
   const [waLoading, setWaLoading] = useState(false);
@@ -179,38 +180,92 @@ export default function SettingsPage() {
 
           {!waPendingConfirm ? (
             <div className="space-y-4 pt-2">
-              <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-3">
-                <button
-                  type="button"
-                  onClick={() => setWaProvider("textmebot")}
-                  className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${
-                    waProvider === "textmebot"
-                      ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
-                      : "text-slate-500 hover:text-slate-900"
-                  }`}
-                >
-                  TextMeBot (QR Linked)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWaProvider("callmebot")}
-                  className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${
-                    waProvider === "callmebot"
-                      ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
-                      : "text-slate-500 hover:text-slate-900"
-                  }`}
-                >
-                  CallMeBot (Direct Bot)
-                </button>
+              {/* Destination Mode: Personal vs Group */}
+              <div>
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
+                  Delivery Mode
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setWaTargetType("personal")}
+                    className={`py-1.5 text-xs font-semibold rounded-lg transition ${
+                      waTargetType === "personal"
+                        ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    👤 Personal Chat (You)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWaTargetType("group");
+                      setWaProvider("textmebot");
+                    }}
+                    className={`py-1.5 text-xs font-semibold rounded-lg transition ${
+                      waTargetType === "group"
+                        ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    👥 WhatsApp Group
+                  </button>
+                </div>
               </div>
+
+              {waTargetType === "group" && (
+                <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-xl text-xs space-y-1 text-slate-700 dark:text-slate-300">
+                  <p className="font-semibold text-blue-900 dark:text-blue-200">
+                    Forwarding to a WhatsApp Group:
+                  </p>
+                  <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
+                    <li>Make sure your WhatsApp number (linked with TextMeBot) is in the group.</li>
+                    <li>Copy the Group Invite Link from WhatsApp (e.g. <code>https://chat.whatsapp.com/...</code>) or paste the Group ID.</li>
+                  </ul>
+                </div>
+              )}
+
+              {waTargetType === "personal" && (
+                <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setWaProvider("textmebot")}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${
+                      waProvider === "textmebot"
+                        ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    TextMeBot (QR Linked)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWaProvider("callmebot")}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${
+                      waProvider === "callmebot"
+                        ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    CallMeBot (Direct Bot)
+                  </button>
+                </div>
+              )}
 
               <div>
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
-                  New WhatsApp Phone Number (with Country Code)
+                  {waTargetType === "group"
+                    ? "WhatsApp Group Invite Link or Group ID"
+                    : "New WhatsApp Phone Number (with Country Code)"}
                 </label>
                 <input
-                  type="tel"
-                  placeholder="+919561706020"
+                  type="text"
+                  placeholder={
+                    waTargetType === "group"
+                      ? "https://chat.whatsapp.com/ABCxyz123 or 120363xxx@g.us"
+                      : "+919561706020"
+                  }
                   value={waPhone}
                   onChange={(e) => setWaPhone(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -236,7 +291,9 @@ export default function SettingsPage() {
                 disabled={waLoading || !waPhone || !waApiKey}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2.5 rounded-xl text-sm transition shadow-sm"
               >
-                {waLoading ? "Sending Test Message..." : "Save & Test WhatsApp Number"}
+                {waLoading
+                  ? "Sending Test Message..."
+                  : `Save & Test ${waTargetType === "group" ? "WhatsApp Group" : "WhatsApp Number"}`}
               </button>
             </div>
           ) : (
