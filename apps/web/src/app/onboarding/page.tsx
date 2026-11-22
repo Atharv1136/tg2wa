@@ -709,36 +709,37 @@ export default function OnboardingPage() {
                 {waTargetType === "group" && (
                   <div className="p-3.5 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-xl text-xs space-y-1.5 text-slate-700 dark:text-slate-300">
                     <p className="font-semibold text-blue-900 dark:text-blue-200">
-                      Forwarding to a WhatsApp Group:
+                      How to get your WhatsApp Group ID (@g.us):
                     </p>
-                    <ul className="list-disc pl-4 space-y-1">
-                      <li>Create a WhatsApp Group and add anyone you want to receive the alerts.</li>
-                      <li>Ensure your phone number (linked to TextMeBot) is in that group.</li>
-                      <li>Open WhatsApp Group Info &gt; <strong>Invite via link</strong> &gt; Copy link, and paste it below!</li>
-                    </ul>
+                    <ol className="list-decimal pl-4 space-y-1 text-[11px]">
+                      <li>Create your WhatsApp Group and ensure your TextMeBot linked phone is added to it.</li>
+                      <li>Open <a href="https://web.whatsapp.com" target="_blank" rel="noreferrer" className="underline font-semibold text-blue-600 dark:text-blue-400">web.whatsapp.com</a> and click on your group.</li>
+                      <li>Right-click on the group name or chat in the list &gt; <strong>Inspect</strong>. The Group ID looks like: <code>120363xxxxxx@g.us</code>.</li>
+                      <li>Copy and paste the <code>120363xxxxxx@g.us</code> ID into the field below!</li>
+                    </ol>
                   </div>
                 )}
 
                 <div>
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
                     {waTargetType === "group"
-                      ? "WhatsApp Group Invite Link or Group ID"
+                      ? "WhatsApp Group ID (format: 120363xxxxxx@g.us)"
                       : "Your WhatsApp Phone (with Country Code)"}
                   </label>
                   <input
                     type="text"
                     placeholder={
                       waTargetType === "group"
-                        ? "https://chat.whatsapp.com/ABCxyz123 or 120363xxx@g.us"
+                        ? "120363040377656518@g.us"
                         : "+919561706020"
                     }
                     value={waPhone}
                     onChange={(e) => setWaPhone(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
                   />
                   <p className="text-[11px] text-slate-400 mt-1">
                     {waTargetType === "group"
-                      ? "Paste the group invite link from WhatsApp or the internal group ID."
+                      ? "Internal WhatsApp group identifier ending in @g.us."
                       : "Include your country code (e.g., +91 for India, +1 for US/Canada)."}
                   </p>
                 </div>

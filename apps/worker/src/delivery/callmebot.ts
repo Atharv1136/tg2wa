@@ -4,7 +4,7 @@ import { logger } from "../logger";
 export class CallMeBotSender implements Sender {
   private timeoutMs: number;
 
-  constructor(timeoutMs = 10000) {
+  constructor(timeoutMs = 35000) {
     this.timeoutMs = timeoutMs;
   }
 

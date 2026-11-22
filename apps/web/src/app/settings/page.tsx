@@ -217,12 +217,13 @@ export default function SettingsPage() {
               {waTargetType === "group" && (
                 <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-xl text-xs space-y-1 text-slate-700 dark:text-slate-300">
                   <p className="font-semibold text-blue-900 dark:text-blue-200">
-                    Forwarding to a WhatsApp Group:
+                    How to get your WhatsApp Group ID (@g.us):
                   </p>
-                  <ul className="list-disc pl-4 space-y-0.5 text-[11px]">
-                    <li>Make sure your WhatsApp number (linked with TextMeBot) is in the group.</li>
-                    <li>Copy the Group Invite Link from WhatsApp (e.g. <code>https://chat.whatsapp.com/...</code>) or paste the Group ID.</li>
-                  </ul>
+                  <ol className="list-decimal pl-4 space-y-0.5 text-[11px]">
+                    <li>Ensure your TextMeBot linked phone number is an active member in the group.</li>
+                    <li>Open <a href="https://web.whatsapp.com" target="_blank" rel="noreferrer" className="underline font-semibold text-blue-600 dark:text-blue-400">web.whatsapp.com</a> and click on your group.</li>
+                    <li>Right click the group name or chat &gt; <strong>Inspect</strong>. The Group ID is <code>120363xxxxxx@g.us</code>.</li>
+                  </ol>
                 </div>
               )}
 
@@ -256,19 +257,19 @@ export default function SettingsPage() {
               <div>
                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
                   {waTargetType === "group"
-                    ? "WhatsApp Group Invite Link or Group ID"
+                    ? "WhatsApp Group ID (format: 120363xxxxxx@g.us)"
                     : "New WhatsApp Phone Number (with Country Code)"}
                 </label>
                 <input
                   type="text"
                   placeholder={
                     waTargetType === "group"
-                      ? "https://chat.whatsapp.com/ABCxyz123 or 120363xxx@g.us"
+                      ? "120363040377656518@g.us"
                       : "+919561706020"
                   }
                   value={waPhone}
                   onChange={(e) => setWaPhone(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
                 />
               </div>
 

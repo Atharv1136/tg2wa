@@ -305,7 +305,11 @@ export function buildServer(
     const result = await sender.send({ phoneE164: dest.phoneE164, apiKey, provider: (dest as any).provider || "callmebot" }, testMsg);
 
     if (!result.success) {
-      return reply.status(400).send({ error: { code: result.error || "GATEWAY_FAILED", message: result.error || "WhatsApp gateway rejected request" } });
+      let msg = result.error || "WhatsApp gateway rejected request";
+      if (result.error === "GATEWAY_TIMEOUT") {
+        msg = "WhatsApp gateway timed out. Please check that your Group ID is in the format 120363xxxxxx@g.us and your linked phone number is an active member of that group.";
+      }
+      return reply.status(400).send({ error: { code: result.error || "GATEWAY_FAILED", message: msg } });
     }
 
     await db
