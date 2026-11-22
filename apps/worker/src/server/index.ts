@@ -301,11 +301,14 @@ export function buildServer(
     const dest = destinations[0];
     const apiKey = decrypt(dest.apiKeyEncrypted, encryptionKey);
 
-    const testMsg = "✅ TG2WA Test Message: WhatsApp verification successful!";
+    const isNtfy = (dest as any).provider === "ntfy";
+    const testMsg = isNtfy
+      ? "🔔 TG2WA Test Alert: Mobile push notification connection successful! Live Telegram alerts are active."
+      : "✅ TG2WA Test Message: WhatsApp verification successful!";
     const result = await sender.send({ phoneE164: dest.phoneE164, apiKey, provider: (dest as any).provider || "callmebot" }, testMsg);
 
     if (!result.success) {
-      const msg = result.error || "WhatsApp gateway rejected request";
+      const msg = result.error || "Delivery gateway rejected request";
       return reply.status(400).send({ error: { code: "GATEWAY_FAILED", message: msg } });
     }
 

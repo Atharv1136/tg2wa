@@ -37,17 +37,19 @@ export const WhatsAppDestinationSchema = z
       if (/^\+?[1-9]\d{6,14}$/.test(val)) return true;
       // WhatsApp Group JID ending in @g.us (format: 120363xxxxxx@g.us)
       if (/^[0-9a-zA-Z_\-]+@g\.us$/i.test(val)) return true;
+      // Mobile Push topic (ntfy.sh topic, e.g. tg2wa-alerts-1234 or https://ntfy.sh/tg2wa-alerts-1234)
+      if (/^([a-zA-Z0-9_\-]{3,64}|https?:\/\/ntfy\.sh\/[a-zA-Z0-9_\-]{3,64})$/i.test(val)) return true;
       return false;
     },
     {
-      message: "Must be a valid international phone number (e.g. +919561706020) or numeric WhatsApp Group ID (e.g. 120363xxxxxx@g.us)",
+      message: "Must be a valid international phone number (e.g. +919561706020), WhatsApp Group ID (@g.us), or ntfy topic (e.g. tg2wa-alerts-atharv)",
     }
   );
 
 export const SaveWhatsAppInputSchema = z.object({
   phone: WhatsAppDestinationSchema,
-  apiKey: z.string().min(1).trim(),
-  provider: z.enum(["callmebot", "textmebot"]).optional().default("callmebot"),
+  apiKey: z.string().optional().default("public"),
+  provider: z.enum(["callmebot", "textmebot", "ntfy"]).optional().default("callmebot"),
 });
 
 export const ConfirmWhatsAppInputSchema = z.object({

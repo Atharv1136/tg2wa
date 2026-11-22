@@ -14,7 +14,39 @@ export class CallMeBotSender implements Sender {
     const provider = dest.provider || "callmebot";
 
     try {
-      if (provider === "textmebot") {
+      if (provider === "ntfy") {
+        // ntfy.sh instant mobile push notification
+        const topic = dest.phoneE164.trim().replace(/^https?:\/\/ntfy\.sh\//, "").replace(/^\/+/, "");
+        const headers: Record<string, string> = {
+          Title: "Telegram Alert",
+          Priority: "default",
+          Tags: "incoming_envelope,bell",
+          "User-Agent": "TG2WA-Worker/1.0",
+        };
+        if (dest.apiKey && dest.apiKey.trim() !== "" && dest.apiKey.trim() !== "public") {
+          headers["Authorization"] = `Bearer ${dest.apiKey.trim()}`;
+        }
+
+        const response = await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
+          method: "POST",
+          headers,
+          body: text,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timer);
+
+        if (!response.ok) {
+          const status = response.status;
+          return {
+            success: false,
+            error: `HTTP_${status}`,
+            retryable: status >= 500 || status === 429,
+          };
+        }
+
+        return { success: true };
+      } else if (provider === "textmebot") {
         // TextMeBot expects POST with application/x-www-form-urlencoded
         const recipient = dest.phoneE164.replace(/^\+/, "");
         const params = new URLSearchParams({

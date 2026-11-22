@@ -8,7 +8,7 @@ export interface SendResult {
 export interface Destination {
   phoneE164: string;
   apiKey: string;
-  provider?: "callmebot" | "textmebot" | string;
+  provider?: "callmebot" | "textmebot" | "ntfy" | string;
 }
 
 export interface Sender {

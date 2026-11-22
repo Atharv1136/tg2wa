@@ -16,30 +16,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: { code: "INVALID_REQUEST", message: "Invalid WhatsApp details" } }, { status: 400 });
   }
 
-  const userId = session.user.id;
-  const encryptionKey = process.env.ENCRYPTION_KEY || "";
-  const apiKeyEncrypted = encrypt(parsed.data.apiKey, encryptionKey);
-
   let targetDestination = parsed.data.phone.trim();
   let provider = parsed.data.provider || "textmebot";
 
-  // Reject invite links with clear actionable instruction
-  if (targetDestination.includes("chat.whatsapp.com")) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "INVALID_GROUP_INVITE_LINK",
-          message:
-            "Group invite links (chat.whatsapp.com) cannot be used directly by WhatsApp bots. Please provide your numeric WhatsApp Group ID ending in @g.us (format: 120363xxxxxx@g.us). Follow the WhatsApp Web inspection instructions on this page.",
+  if (provider === "ntfy" || targetDestination.includes("ntfy.sh/")) {
+    provider = "ntfy";
+    targetDestination = targetDestination.replace(/^https?:\/\/ntfy\.sh\//, "").replace(/^\/+/, "").trim();
+  } else {
+    // Reject invite links with clear actionable instruction
+    if (targetDestination.includes("chat.whatsapp.com")) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "INVALID_GROUP_INVITE_LINK",
+            message:
+              "Group invite links (chat.whatsapp.com) cannot be used directly by WhatsApp bots. Please provide your numeric WhatsApp Group ID ending in @g.us (format: 120363xxxxxx@g.us), or select Mobile Push Notifications (ntfy.sh) for instant free alerts without any group setup!",
+          },
         },
-      },
-      { status: 400 }
-    );
+        { status: 400 }
+      );
+    }
+
+    if (targetDestination.toLowerCase().endsWith("@g.us")) {
+      provider = "textmebot";
+    }
   }
 
-  if (targetDestination.toLowerCase().endsWith("@g.us")) {
-    provider = "textmebot";
-  }
+  const userId = session.user.id;
+  const encryptionKey = process.env.ENCRYPTION_KEY || "";
+  const apiKeyEncrypted = encrypt(parsed.data.apiKey || "public", encryptionKey);
 
   const db = getDb();
   await db

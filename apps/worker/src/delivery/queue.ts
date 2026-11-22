@@ -11,13 +11,13 @@ export class DeliveryQueueManager {
     this.sender = sender;
   }
 
-  private getQueue(userId: string, isFastProvider: boolean = false): PQueue {
+  private getQueue(userId: string, isFastProvider: boolean = false, isNtfy: boolean = false): PQueue {
     let queue = this.userQueues.get(userId);
     if (!queue) {
       queue = new PQueue({
         concurrency: 1,
-        // TextMeBot requires 8s cooldown between messages; CallMeBot requires 20s
-        interval: isFastProvider ? 8500 : QUEUE_INTERVAL_MS,
+        // ntfy: 200ms (instant high-throughput); TextMeBot: 8.5s; CallMeBot: 20s
+        interval: isNtfy ? 200 : isFastProvider ? 8500 : QUEUE_INTERVAL_MS,
         intervalCap: 1,
       });
       this.userQueues.set(userId, queue);
@@ -33,8 +33,9 @@ export class DeliveryQueueManager {
     onFailure: (error: string) => Promise<void>,
     isCancelled?: () => boolean
   ): Promise<void> {
+    const isNtfy = dest.provider === "ntfy";
     const isFast = dest.provider === "textmebot";
-    const queue = this.getQueue(userId, isFast);
+    const queue = this.getQueue(userId, isFast, isNtfy);
 
     // Bounded queue: cap 200 items
     if (queue.size >= 200) {

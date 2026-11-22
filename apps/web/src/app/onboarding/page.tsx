@@ -35,7 +35,9 @@ export default function OnboardingPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [groupsLoading, setGroupsLoading] = useState(false);
 
-  // Step 3: WhatsApp State
+  // Step 3: Delivery Destination State
+  const [deliveryMode, setDeliveryMode] = useState<"ntfy" | "whatsapp_personal" | "whatsapp_group">("ntfy");
+  const [ntfyTopic, setNtfyTopic] = useState("");
   const [waProvider, setWaProvider] = useState<"textmebot" | "callmebot">("textmebot");
   const [waTargetType, setWaTargetType] = useState<"personal" | "group">("personal");
   const [waPhone, setWaPhone] = useState("");
@@ -48,6 +50,10 @@ export default function OnboardingPage() {
 
   // Load existing status on mount
   useEffect(() => {
+    if (!ntfyTopic) {
+      const rand = Math.random().toString(36).substring(2, 8);
+      setNtfyTopic(`tg2wa-alerts-${rand}`);
+    }
     const urlParams = new URLSearchParams(window.location.search);
     const paramStep = urlParams.get("step");
     if (paramStep) {
@@ -212,23 +218,47 @@ export default function OnboardingPage() {
     g.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Handlers for WhatsApp Verification
+  // Handlers for Delivery Destination Verification
   const handleSaveAndTestWhatsApp = async () => {
     setErrorMsg("");
 
-    if (waTargetType === "group") {
+    let payload: { phone: string; apiKey: string; provider: string };
+
+    if (deliveryMode === "ntfy") {
+      const topic = (ntfyTopic || "").trim().replace(/^https?:\/\/ntfy\.sh\//, "").replace(/^\/+/, "");
+      if (!topic || topic.length < 3) {
+        setErrorMsg("Please enter a valid topic name (at least 3 characters)");
+        return;
+      }
+      payload = { phone: topic, apiKey: "public", provider: "ntfy" };
+    } else if (deliveryMode === "whatsapp_group") {
       if (waPhone.includes("chat.whatsapp.com")) {
         setErrorMsg(
-          "WhatsApp Group invite links (chat.whatsapp.com) cannot be used directly by WhatsApp bots. Please provide your numeric WhatsApp Group ID ending in @g.us (format: 120363xxxxxx@g.us). If you prefer 1-on-1 personal alerts to your phone, switch to 'Personal Chat (You)' above!"
+          "WhatsApp Group invite links (chat.whatsapp.com) cannot be used directly by WhatsApp bots. Please provide your numeric WhatsApp Group ID ending in @g.us (format: 120363xxxxxx@g.us). Or switch to Mobile Push (ntfy.sh) above for instant free alerts!"
         );
         return;
       }
       if (!waPhone.trim().endsWith("@g.us")) {
         setErrorMsg(
-          "WhatsApp Group IDs must end with @g.us (format: 120363xxxxxx@g.us). If you prefer 1-on-1 personal alerts to your phone, switch to 'Personal Chat (You)' above!"
+          "WhatsApp Group IDs must end with @g.us (format: 120363xxxxxx@g.us). Or switch to Mobile Push (ntfy.sh) above for instant free alerts!"
         );
         return;
       }
+      if (!waApiKey.trim()) {
+        setErrorMsg("Please enter your TextMeBot API Key");
+        return;
+      }
+      payload = { phone: waPhone.trim(), apiKey: waApiKey.trim(), provider: "textmebot" };
+    } else {
+      if (!waPhone.trim()) {
+        setErrorMsg("Please enter your WhatsApp phone number");
+        return;
+      }
+      if (!waApiKey.trim()) {
+        setErrorMsg("Please enter your API Key");
+        return;
+      }
+      payload = { phone: waPhone.trim(), apiKey: waApiKey.trim(), provider: waProvider };
     }
 
     setWaLoading(true);
@@ -237,18 +267,18 @@ export default function OnboardingPage() {
       const saveRes = await fetch("/api/whatsapp/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: waPhone, apiKey: waApiKey, provider: waProvider }),
+        body: JSON.stringify(payload),
       });
       if (!saveRes.ok) {
         const err = await saveRes.json();
-        throw new Error(err.error?.message || "Failed to save WhatsApp number");
+        throw new Error(err.error?.message || "Failed to save delivery destination");
       }
 
       // 2. Test send
       const testRes = await fetch("/api/whatsapp/test", { method: "POST" });
       const testData = await testRes.json();
       if (!testRes.ok) {
-        throw new Error(testData.error?.message || "WhatsApp gateway failed to send test message. Check your API key and phone number.");
+        throw new Error(testData.error?.message || "Delivery gateway failed to send test notification.");
       }
 
       setWaStatus("pending_confirmation");
@@ -591,173 +621,226 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* STEP 3: Verify WhatsApp */}
+        {/* STEP 3: Verify Delivery Destination */}
         {step === 3 && (
           <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
-            <h2 className="text-xl font-bold mb-2">Step 3: Connect your WhatsApp</h2>
+            <h2 className="text-xl font-bold mb-2">Step 3: Choose Notification Destination</h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-              Choose your WhatsApp gateway provider to deliver Telegram messages straight to your personal WhatsApp without complex Meta business verification.
+              Choose how you want to receive your forwarded Telegram messages on your phone.
             </p>
 
-            {/* Provider Tabs */}
-            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-6">
+            {/* Delivery Destination Switcher */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-2xl mb-6">
               <button
                 type="button"
                 onClick={() => {
-                  setWaProvider("textmebot");
+                  setDeliveryMode("ntfy");
                   setErrorMsg("");
                 }}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
-                  waProvider === "textmebot"
-                    ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
-                    : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
+                className={`py-3 px-3 text-xs font-bold rounded-xl transition flex flex-col items-center gap-1 text-center ${
+                  deliveryMode === "ntfy"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-md ring-1 ring-blue-500/20"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                 }`}
               >
-                TextMeBot (QR / Linked Device)
+                <span className="text-base">📱 Mobile Push (ntfy)</span>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider">
+                  ★ Easiest · 100% Free
+                </span>
               </button>
+
               <button
                 type="button"
                 onClick={() => {
-                  setWaProvider("callmebot");
+                  setDeliveryMode("whatsapp_personal");
                   setErrorMsg("");
                 }}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
-                  waProvider === "callmebot"
-                    ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
-                    : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
+                className={`py-3 px-3 text-xs font-bold rounded-xl transition flex flex-col items-center gap-1 text-center ${
+                  deliveryMode === "whatsapp_personal"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-md ring-1 ring-blue-500/20"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
                 }`}
               >
-                CallMeBot (Direct WhatsApp Bot)
+                <span className="text-base">👤 Personal WhatsApp</span>
+                <span className="text-[10px] text-slate-500 font-normal">Direct 1-on-1 Bot</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setDeliveryMode("whatsapp_group");
+                  setErrorMsg("");
+                }}
+                className={`py-3 px-3 text-xs font-bold rounded-xl transition flex flex-col items-center gap-1 text-center ${
+                  deliveryMode === "whatsapp_group"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-md ring-1 ring-blue-500/20"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                }`}
+              >
+                <span className="text-base">👥 WhatsApp Group</span>
+                <span className="text-[10px] text-slate-500 font-normal">Requires @g.us ID</span>
               </button>
             </div>
 
-            {/* Step-by-step Instructions based on selected provider */}
-            {waProvider === "textmebot" ? (
-              <div className="p-4 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl mb-6 text-xs text-slate-700 dark:text-slate-300 space-y-2 border border-slate-200 dark:border-slate-700">
-                <p className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                  How to setup TextMeBot (Recommended):
-                </p>
-                <ol className="list-decimal pl-4 space-y-1.5">
-                  <li>
-                    Visit{" "}
-                    <a
-                      href="https://textmebot.com"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="underline text-blue-600 dark:text-blue-400 font-semibold"
-                    >
-                      textmebot.com
-                    </a>{" "}
-                    and click <strong>&ldquo;Request APIKey&rdquo;</strong> (or enter your email).
-                  </li>
-                  <li>
-                    Open the email from TextMeBot, click the verification link to <strong>link your WhatsApp</strong> (by scanning the QR code in WhatsApp &gt; Linked Devices).
-                  </li>
-                  <li>
-                    Copy your <strong>APIKEY</strong> received in your email (e.g. <code>abc123xyz</code>).
-                  </li>
-                  <li>
-                    Enter your WhatsApp phone number and your TextMeBot API Key below, then click &ldquo;Save & Send Test Message&rdquo;.
-                  </li>
-                </ol>
-              </div>
-            ) : (
-              <div className="p-4 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl mb-6 text-xs text-slate-700 dark:text-slate-300 space-y-2 border border-slate-200 dark:border-slate-700">
-                <p className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                  Quick 1-Minute Activation via CallMeBot:
-                </p>
-                <ol className="list-decimal pl-4 space-y-1.5">
-                  <li>
-                    Add the active CallMeBot number into your WhatsApp contacts:{" "}
-                    <strong className="font-mono text-blue-600 dark:text-blue-400">+34 623 78 64 49</strong>{" "}
-                    <span className="text-slate-400">(or +34 644 26 33 77)</span>
-                  </li>
-                  <li>
-                    Open WhatsApp and send this exact text message to that contact:
-                    <div className="my-1.5 p-2 bg-white dark:bg-slate-900 rounded border font-mono font-bold select-all text-emerald-600 dark:text-emerald-400">
-                      I allow callmebot to send me messages
-                    </div>
-                  </li>
-                  <li>
-                    CallMeBot will reply immediately with your personal <strong>apikey</strong> (e.g. <code>123456</code>).
-                  </li>
-                  <li>Enter your phone number and the received API key below, then click &ldquo;Save & Send Test Message&rdquo;.</li>
-                </ol>
-              </div>
-            )}
-
-            {waStatus === "idle" && (
+            {/* NTFY PUSH NOTIFICATION MODE */}
+            {deliveryMode === "ntfy" && waStatus === "idle" && (
               <div className="space-y-4">
-                {/* Destination Type Switcher */}
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5 block">
-                    Deliver Updates To
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => setWaTargetType("personal")}
-                      className={`py-2 text-xs font-semibold rounded-lg transition ${
-                        waTargetType === "personal"
-                          ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
-                          : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
-                      }`}
-                    >
-                      👤 Personal Chat (You)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setWaTargetType("group");
-                        setWaProvider("textmebot");
-                      }}
-                      className={`py-2 text-xs font-semibold rounded-lg transition ${
-                        waTargetType === "group"
-                          ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
-                          : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
-                      }`}
-                    >
-                      👥 WhatsApp Group
-                    </button>
+                <div className="p-5 bg-gradient-to-br from-blue-50/80 to-indigo-50/50 dark:from-slate-800/80 dark:to-slate-900/50 border border-blue-200/80 dark:border-blue-900/40 rounded-2xl text-xs text-slate-700 dark:text-slate-300 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                      ⚡ 1-Minute Setup: Instant Lock-Screen Notifications
+                    </p>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                      Zero Fees · No Group IDs
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Telegram alerts will pop up directly on your phone with sound and vibration—just like SMS or WhatsApp, with no carrier costs, no group ID headaches, and instant real-time throughput.
+                  </p>
+
+                  <ol className="list-decimal pl-4 space-y-2 text-xs">
+                    <li>
+                      Install the free <strong>ntfy</strong> app on your smartphone:
+                      <div className="flex flex-wrap gap-2 mt-1.5">
+                        <a
+                          href="https://play.google.com/store/apps/details?id=io.heckel.ntfy"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs shadow-sm transition"
+                        >
+                          🤖 Google Play Store (Android)
+                        </a>
+                        <a
+                          href="https://apps.apple.com/app/ntfy/id1625396347"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs shadow-sm transition"
+                        >
+                          🍎 Apple App Store (iOS)
+                        </a>
+                        <a
+                          href={`https://ntfy.sh/${ntfyTopic}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-medium text-xs hover:underline"
+                        >
+                          🌐 Or View in Browser
+                        </a>
+                      </div>
+                    </li>
+                    <li>
+                      Open the ntfy app, tap the <strong>&ldquo;+&rdquo;</strong> button (Subscribe to topic), and enter your topic name below.
+                    </li>
+                  </ol>
+
+                  <div className="pt-2">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 block">
+                      Your Notification Topic Name:
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={ntfyTopic}
+                        onChange={(e) => setNtfyTopic(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                        placeholder="e.g. tg2wa-alerts-mysecret"
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(ntfyTopic);
+                          alert(`Copied "${ntfyTopic}"! In the ntfy app, tap "+" and paste it.`);
+                        }}
+                        className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                      >
+                        📋 Copy Topic
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Web link: <a href={`https://ntfy.sh/${ntfyTopic}`} target="_blank" rel="noreferrer" className="text-blue-600 underline">https://ntfy.sh/{ntfyTopic}</a>
+                    </p>
                   </div>
                 </div>
 
-                {waTargetType === "group" && (
-                  <div className="p-3.5 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-xl text-xs space-y-1.5 text-slate-700 dark:text-slate-300">
-                    <p className="font-semibold text-blue-900 dark:text-blue-200">
-                      How to get your WhatsApp Group ID (@g.us):
+                <button
+                  onClick={handleSaveAndTestWhatsApp}
+                  disabled={waLoading || !ntfyTopic}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition shadow-sm"
+                >
+                  {waLoading ? "Sending Test Push Notification..." : "Save & Send Test Push Notification 🔔"}
+                </button>
+              </div>
+            )}
+
+            {/* WHATSAPP PERSONAL MODE */}
+            {deliveryMode === "whatsapp_personal" && waStatus === "idle" && (
+              <div className="space-y-4">
+                <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWaProvider("textmebot");
+                      setErrorMsg("");
+                    }}
+                    className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
+                      waProvider === "textmebot"
+                        ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    TextMeBot (QR Linked)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWaProvider("callmebot");
+                      setErrorMsg("");
+                    }}
+                    className={`flex-1 py-2 text-xs font-semibold rounded-lg transition ${
+                      waProvider === "callmebot"
+                        ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    CallMeBot (Direct Bot)
+                  </button>
+                </div>
+
+                {waProvider === "textmebot" ? (
+                  <div className="p-4 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl text-xs text-slate-700 dark:text-slate-300 space-y-2 border border-slate-200 dark:border-slate-700">
+                    <p className="font-semibold text-sm text-slate-900 dark:text-slate-100">
+                      How to setup TextMeBot:
                     </p>
-                    <ol className="list-decimal pl-4 space-y-1 text-[11px]">
-                      <li>Create your WhatsApp Group and ensure your TextMeBot linked phone is added to it.</li>
-                      <li>Open <a href="https://web.whatsapp.com" target="_blank" rel="noreferrer" className="underline font-semibold text-blue-600 dark:text-blue-400">web.whatsapp.com</a> and click on your group.</li>
-                      <li>Right-click on the group name or chat in the list &gt; <strong>Inspect</strong>. The Group ID looks like: <code>120363xxxxxx@g.us</code>.</li>
-                      <li>Copy and paste the <code>120363xxxxxx@g.us</code> ID into the field below!</li>
+                    <ol className="list-decimal pl-4 space-y-1">
+                      <li>Visit <a href="https://textmebot.com" target="_blank" rel="noreferrer" className="underline text-blue-600">textmebot.com</a> and request your API Key.</li>
+                      <li>Scan the QR code in WhatsApp &gt; Linked Devices.</li>
+                      <li>Copy your API Key from your email and enter below.</li>
+                    </ol>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl text-xs text-slate-700 dark:text-slate-300 space-y-2 border border-slate-200 dark:border-slate-700">
+                    <p className="font-semibold text-sm text-slate-900 dark:text-slate-100">
+                      Quick Activation via CallMeBot:
+                    </p>
+                    <ol className="list-decimal pl-4 space-y-1">
+                      <li>Add <strong className="font-mono text-blue-600">+34 623 78 64 49</strong> to WhatsApp contacts.</li>
+                      <li>Send message: <code className="text-emerald-600 font-bold">I allow callmebot to send me messages</code></li>
+                      <li>Enter your phone and received API Key below.</li>
                     </ol>
                   </div>
                 )}
 
                 <div>
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
-                    {waTargetType === "group"
-                      ? "WhatsApp Group ID (format: 120363xxxxxx@g.us)"
-                      : "Your WhatsApp Phone (with Country Code)"}
+                    Your WhatsApp Phone Number (with Country Code)
                   </label>
                   <input
                     type="text"
-                    placeholder={
-                      waTargetType === "group"
-                        ? "120363040377656518@g.us"
-                        : "+919561706020"
-                    }
+                    placeholder="+919561706020"
                     value={waPhone}
                     onChange={(e) => setWaPhone(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    {waTargetType === "group"
-                      ? "Internal WhatsApp group identifier ending in @g.us."
-                      : "Include your country code (e.g., +91 for India, +1 for US/Canada)."}
-                  </p>
                 </div>
 
                 <div>
@@ -766,7 +849,7 @@ export default function OnboardingPage() {
                   </label>
                   <input
                     type="password"
-                    placeholder={waProvider === "textmebot" ? "Paste your TextMeBot API Key" : "Enter received CallMeBot apikey"}
+                    placeholder={waProvider === "textmebot" ? "Paste TextMeBot API Key" : "Enter CallMeBot API Key"}
                     value={waApiKey}
                     onChange={(e) => setWaApiKey(e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -778,9 +861,57 @@ export default function OnboardingPage() {
                   disabled={waLoading || !waPhone || !waApiKey}
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition shadow-sm"
                 >
-                  {waLoading
-                    ? "Sending Test Message to WhatsApp..."
-                    : `Save & Test ${waTargetType === "group" ? "Group" : ""} with ${waProvider === "textmebot" ? "TextMeBot" : "CallMeBot"}`}
+                  {waLoading ? "Sending Test Message..." : "Save & Send WhatsApp Test"}
+                </button>
+              </div>
+            )}
+
+            {/* WHATSAPP GROUP MODE */}
+            {deliveryMode === "whatsapp_group" && waStatus === "idle" && (
+              <div className="space-y-4">
+                <div className="p-3.5 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-xl text-xs space-y-1.5 text-slate-700 dark:text-slate-300">
+                  <p className="font-semibold text-blue-900 dark:text-blue-200">
+                    How to get your WhatsApp Group ID (@g.us):
+                  </p>
+                  <ol className="list-decimal pl-4 space-y-1 text-[11px]">
+                    <li>Ensure your TextMeBot linked phone is added to the group.</li>
+                    <li>Open <a href="https://web.whatsapp.com" target="_blank" rel="noreferrer" className="underline font-semibold text-blue-600">web.whatsapp.com</a> and click on your group.</li>
+                    <li>Right click the group chat &gt; <strong>Inspect</strong>. The Group ID looks like: <code>120363xxxxxx@g.us</code>.</li>
+                  </ol>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
+                    WhatsApp Group ID (format: 120363xxxxxx@g.us)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="120363040377656518@g.us"
+                    value={waPhone}
+                    onChange={(e) => setWaPhone(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
+                    TextMeBot API Key
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Paste your TextMeBot API Key"
+                    value={waApiKey}
+                    onChange={(e) => setWaApiKey(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <button
+                  onClick={handleSaveAndTestWhatsApp}
+                  disabled={waLoading || !waPhone || !waApiKey}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition shadow-sm"
+                >
+                  {waLoading ? "Sending Test Message to Group..." : "Save & Test WhatsApp Group"}
                 </button>
               </div>
             )}
@@ -788,11 +919,13 @@ export default function OnboardingPage() {
             {waStatus === "pending_confirmation" && (
               <div className="text-center py-4 space-y-4">
                 <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto text-xl">
-                  📲
+                  {deliveryMode === "ntfy" ? "🔔" : "📲"}
                 </div>
-                <h3 className="font-semibold text-lg">Did you receive the test message?</h3>
+                <h3 className="font-semibold text-lg">Did you receive the test alert?</h3>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  We dispatched a test notification to your WhatsApp number. Please check your WhatsApp.
+                  {deliveryMode === "ntfy"
+                    ? `We dispatched a test push notification to topic "${ntfyTopic}". Check your phone screen or ntfy app!`
+                    : "We dispatched a test notification to your WhatsApp. Please check your WhatsApp."}
                 </p>
                 <div className="flex gap-3 justify-center pt-2">
                   <button
@@ -818,9 +951,9 @@ export default function OnboardingPage() {
                 <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
                   ✓
                 </div>
-                <h3 className="font-semibold text-lg">WhatsApp Verified</h3>
+                <h3 className="font-semibold text-lg">Destination Verified</h3>
                 <p className="text-sm text-slate-500 mb-6">
-                  Your WhatsApp destination {waPhone ? `(${waPhone})` : ""} is configured and active.
+                  Your delivery destination is configured and active.
                 </p>
                 <div className="flex items-center justify-center gap-3">
                   <button
@@ -829,16 +962,16 @@ export default function OnboardingPage() {
                       setWaStatus("idle");
                       setErrorMsg("");
                     }}
-                    className="px-5 py-2.5 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium rounded-xl text-sm transition"
+                    className="px-5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                   >
-                    Change WhatsApp Number
+                    Change Destination
                   </button>
                   <button
                     type="button"
                     onClick={() => setStep(4)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2.5 rounded-xl transition text-sm shadow-sm"
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition shadow-sm"
                   >
-                    Continue to Review
+                    Continue to Finish →
                   </button>
                 </div>
               </div>
