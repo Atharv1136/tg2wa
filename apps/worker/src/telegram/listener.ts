@@ -1,5 +1,5 @@
 import { TelegramClient, utils } from "telegram";
-import { NewMessage, NewMessageEvent } from "telegram/events";
+import { NewMessage, NewMessageEvent } from "telegram/events/index.js";
 import { WorkerDb } from "@tg2wa/db";
 import { DeliveryQueueManager } from "../delivery/queue";
 import { formatMessage, splitMessage } from "../delivery/format";
