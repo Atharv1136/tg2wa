@@ -15,17 +15,10 @@ async function main() {
 
   const env = loadWorkerEnv();
 
-  // 1. Single Instance Advisory Lock Guard
-  const lock = await acquireSingleInstanceLock(env.DATABASE_URL_UNPOOLED);
-  if (!lock.acquired) {
-    logger.fatal("Could not acquire advisory lock. Another worker instance is running. Exiting.");
-    process.exit(1);
-  }
-
-  // 2. Initialize Direct DB Client
+  // 1. Initialize Direct DB Client
   const { db, client: dbClient } = createWorkerDbClient(env.DATABASE_URL_UNPOOLED);
 
-  // 3. Subsystem Managers
+  // 2. Subsystem Managers
   const loginManager = new TelegramLoginManager(env.TELEGRAM_API_ID, env.TELEGRAM_API_HASH);
   const clientManager = new TelegramClientManager(env.TELEGRAM_API_ID, env.TELEGRAM_API_HASH);
   const sender = new CallMeBotSender();
@@ -40,7 +33,7 @@ async function main() {
     env.ENCRYPTION_KEY
   );
 
-  // 4. Fastify Internal Server
+  // 3. Fastify Internal Server
   const server = buildServer(
     db,
     loginManager,
@@ -51,13 +44,20 @@ async function main() {
     async (userId) => reconciler.reconcileUser(userId)
   );
 
-  // 5. Start Heartbeat & Reconciler
-  heartbeatManager.start();
-  reconciler.start();
-
-  // 6. Start Server
+  // 4. Start Server immediately so Render health checks pass
   await server.listen({ port: env.PORT, host: "0.0.0.0" });
   logger.info(`Worker Fastify server listening on port ${env.PORT}`);
+
+  // 5. Single Instance Advisory Lock Guard with handover support
+  const lock = await acquireSingleInstanceLock(env.DATABASE_URL_UNPOOLED);
+  if (!lock.acquired) {
+    logger.fatal("Could not acquire advisory lock. Another worker instance is running. Exiting.");
+    process.exit(1);
+  }
+
+  // 6. Start Heartbeat & Reconciler once lock is confirmed
+  heartbeatManager.start();
+  reconciler.start();
 
   // 7. Graceful Shutdown
   const shutdown = async (signal: string) => {
