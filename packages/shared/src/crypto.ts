@@ -6,14 +6,21 @@ const AUTH_TAG_LENGTH = 16;
 const KEY_VERSION_PREFIX = "v1:";
 
 /**
- * Validates and converts the base64 encryption key into a 32-byte Buffer.
+ * Validates and converts the base64 or hex encryption key into a 32-byte Buffer.
  */
 export function parseEncryptionKey(base64Key: string): Buffer {
   if (!base64Key) {
     throw new Error("Encryption key is required");
   }
+  // Support 64-character hex strings (32 bytes)
+  if (/^[0-9a-fA-F]{64}$/.test(base64Key)) {
+    return Buffer.from(base64Key, "hex");
+  }
   const key = Buffer.from(base64Key, "base64");
   if (key.length !== 32) {
+    if (Buffer.byteLength(base64Key, "utf8") === 32) {
+      return Buffer.from(base64Key, "utf8");
+    }
     throw new Error(`Invalid encryption key length: expected 32 bytes, got ${key.length}`);
   }
   return key;

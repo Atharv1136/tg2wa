@@ -10,6 +10,10 @@ describe("AES-256-GCM Crypto Module", () => {
     const keyBuf = parseEncryptionKey(validKey);
     expect(keyBuf.length).toBe(32);
 
+    const hexKey = "7d84877dcff0f81d4a0a4c2847c1b50d32104598a3b8cd9aef026601ea187b54";
+    const hexBuf = parseEncryptionKey(hexKey);
+    expect(hexBuf.length).toBe(32);
+
     expect(() => parseEncryptionKey("")).toThrow("Encryption key is required");
     expect(() => parseEncryptionKey(Buffer.from("too-short").toString("base64"))).toThrow(
       "Invalid encryption key length"
